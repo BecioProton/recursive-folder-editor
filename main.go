@@ -37,57 +37,41 @@ func main() {
 		return
 	}
 
-	fmt.Print("Enter replacement character(s): ")
+	fmt.Print("Enter replacement character(s) (use SPACE for spaces): ")
 	newChar, _ := reader.ReadString('\n')
 	newChar = strings.TrimSpace(newChar)
+	if newChar == "SPACE" {
+		newChar = " "
+	}
 
-	err = filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	// Read only the contents of the specified directory
+	entries, err := os.ReadDir(absPath)
+	if err != nil {
+		fmt.Println("Error reading directory:", err)
+		return
+	}
+
+	for _, entry := range entries {
+		// Rename only if it's a directory and contains the oldChar
+		if entry.IsDir() {
+			dirName := entry.Name()
+			if strings.Contains(dirName, oldChar) {
+				newDirName := strings.ReplaceAll(dirName, oldChar, newChar)
+				oldPath := filepath.Join(absPath, dirName)
+				newPath := filepath.Join(absPath, newDirName)
+
+				// Rename directory
+				err := os.Rename(oldPath, newPath)
+				if err != nil {
+					fmt.Printf("Error renaming folder '%s' to '%s': %v\n", oldPath, newPath, err)
+				} else {
+					fmt.Printf("Renamed '%s' to '%s'\n", oldPath, newPath)
+				}
+			}
 		}
-		if !info.IsDir() {
-			replaceInFile(path, oldChar, newChar)
-		}
-		return nil
-	})
+	}
 
 	if err != nil {
 		fmt.Println("Error scanning directory:", err)
 	}
-}
-
-func replaceInFile(filePath, oldChar, newChar string) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	var content []string
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		content = append(content, strings.ReplaceAll(line, oldChar, newChar))
-	}
-
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading file:", err)
-		return
-	}
-
-	file.Close()
-	file, err = os.Create(filePath)
-	if err != nil {
-		fmt.Println("Error writing file:", err)
-		return
-	}
-	defer file.Close()
-
-	writer := bufio.NewWriter(file)
-	for _, line := range content {
-		_, _ = writer.WriteString(line + "\n")
-	}
-	writer.Flush()
 }
